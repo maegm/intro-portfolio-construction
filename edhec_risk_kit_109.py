@@ -1,15 +1,22 @@
 import pandas as pd
 import numpy as np
+import scipy.stats
+from scipy.optimize import minimize
 
-def get_ffme_returns():
+github_repo = 'https://raw.githubusercontent.com/maegm/intro-portfolio-construction/master/'
+
+
+def get_ffme_returns(columns=None):
     """
     Load the Fama-French Dataset for the returns of the Top and Bottom Deciles by MarketCap
     """
-    me_m = pd.read_csv("data/Portfolios_Formed_on_ME_monthly_EW.csv",
+    if columns is None:
+        columns = ['Lo 10', 'Hi 10']
+    me_m = pd.read_csv(github_repo + "data/Portfolios_Formed_on_ME_monthly_EW.csv",
                        header=0, index_col=0, na_values=-99.99)
-    rets = me_m[['Lo 10', 'Hi 10']]
+    rets = me_m[columns]
     rets.columns = ['SmallCap', 'LargeCap']
-    rets = rets/100
+    rets = rets / 100
     rets.index = pd.to_datetime(rets.index, format="%Y%m").to_period('M')
     return rets
 
@@ -18,17 +25,18 @@ def get_hfi_returns():
     """
     Load and format the EDHEC Hedge Fund Index Returns
     """
-    hfi = pd.read_csv("data/edhec-hedgefundindices.csv",
+    hfi = pd.read_csv(github_repo + "data/edhec-hedgefundindices.csv",
                       header=0, index_col=0, parse_dates=True)
-    hfi = hfi/100
+    hfi = hfi / 100
     hfi.index = hfi.index.to_period('M')
     return hfi
+
 
 def get_ind_returns():
     """
     Load and format the Ken French 30 Industry Portfolios Value Weighted Monthly Returns
     """
-    ind = pd.read_csv("data/ind30_m_vw_rets.csv", header=0, index_col=0)/100
+    ind = pd.read_csv(github_repo + "data/ind30_m_vw_rets.csv", header=0, index_col=0) / 100
     ind.index = pd.to_datetime(ind.index, format="%Y%m").to_period('M')
     ind.columns = ind.columns.str.strip()
     return ind
@@ -43,8 +51,8 @@ def skewness(r):
     demeaned_r = r - r.mean()
     # use the population standard deviation, so set dof=0
     sigma_r = r.std(ddof=0)
-    exp = (demeaned_r**3).mean()
-    return exp/sigma_r**3
+    exp = (demeaned_r ** 3).mean()
+    return exp / sigma_r ** 3
 
 
 def kurtosis(r):
@@ -56,8 +64,8 @@ def kurtosis(r):
     demeaned_r = r - r.mean()
     # use the population standard deviation, so set dof=0
     sigma_r = r.std(ddof=0)
-    exp = (demeaned_r**4).mean()
-    return exp/sigma_r**4
+    exp = (demeaned_r ** 4).mean()
+    return exp / sigma_r ** 4
 
 
 def annualize_rets(r, periods_per_year):
@@ -67,9 +75,9 @@ def annualize_rets(r, periods_per_year):
     but that is currently left as an exercise
     to the reader :-)
     """
-    compounded_growth = (1+r).prod()
+    compounded_growth = (1 + r).prod()
     n_periods = r.shape[0]
-    return compounded_growth**(periods_per_year/n_periods)-1
+    return compounded_growth ** (periods_per_year / n_periods) - 1
 
 
 def annualize_vol(r, periods_per_year):
@@ -79,7 +87,7 @@ def annualize_vol(r, periods_per_year):
     but that is currently left as an exercise
     to the reader :-)
     """
-    return r.std()*(periods_per_year**0.5)
+    return r.std() * (periods_per_year ** 0.5)
 
 
 def sharpe_ratio(r, riskfree_rate, periods_per_year):
@@ -87,14 +95,13 @@ def sharpe_ratio(r, riskfree_rate, periods_per_year):
     Computes the annualized sharpe ratio of a set of returns
     """
     # convert the annual riskfree rate to per period
-    rf_per_period = (1+riskfree_rate)**(1/periods_per_year)-1
+    rf_per_period = (1 + riskfree_rate) ** (1 / periods_per_year) - 1
     excess_ret = r - rf_per_period
     ann_ex_ret = annualize_rets(excess_ret, periods_per_year)
     ann_vol = annualize_vol(r, periods_per_year)
-    return ann_ex_ret/ann_vol
+    return ann_ex_ret / ann_vol
 
 
-import scipy.stats
 def is_normal(r, level=0.01):
     """
     Applies the Jarque-Bera test to determine if a Series is normal or not
@@ -115,11 +122,11 @@ def drawdown(return_series: pd.Series):
        the previous peaks, and 
        the percentage drawdown
     """
-    wealth_index = 1000*(1+return_series).cumprod()
+    wealth_index = 1000 * (1 + return_series).cumprod()
     previous_peaks = wealth_index.cummax()
-    drawdowns = (wealth_index - previous_peaks)/previous_peaks
-    return pd.DataFrame({"Wealth": wealth_index, 
-                         "Previous Peak": previous_peaks, 
+    drawdowns = (wealth_index - previous_peaks) / previous_peaks
+    return pd.DataFrame({"Wealth": wealth_index,
+                         "Previous Peak": previous_peaks,
                          "Drawdown": drawdowns})
 
 
@@ -164,7 +171,6 @@ def cvar_historic(r, level=5):
         raise TypeError("Expected r to be a Series or DataFrame")
 
 
-from scipy.stats import norm
 def var_gaussian(r, level=5, modified=False):
     """
     Returns the Parametric Gauusian VaR of a Series or DataFrame
@@ -172,17 +178,17 @@ def var_gaussian(r, level=5, modified=False):
     using the Cornish-Fisher modification
     """
     # compute the Z score assuming it was Gaussian
-    z = norm.ppf(level/100)
+    z = scipy.stats.norm.ppf(level / 100)
     if modified:
         # modify the Z score based on observed skewness and kurtosis
         s = skewness(r)
         k = kurtosis(r)
         z = (z +
-                (z**2 - 1)*s/6 +
-                (z**3 -3*z)*(k-3)/24 -
-                (2*z**3 - 5*z)*(s**2)/36
-            )
-    return -(r.mean() + z*r.std(ddof=0))
+             (z ** 2 - 1) * s / 6 +
+             (z ** 3 - 3 * z) * (k - 3) / 24 -
+             (2 * z ** 3 - 5 * z) * (s ** 2) / 36
+             )
+    return -(r.mean() + z * r.std(ddof=0))
 
 
 def portfolio_return(weights, returns):
@@ -198,7 +204,7 @@ def portfolio_vol(weights, covmat):
     Computes the vol of a portfolio from a covariance matrix and constituent weights
     weights are a numpy array or N x 1 maxtrix and covmat is an N x N matrix
     """
-    return (weights.T @ covmat @ weights)**0.5
+    return (weights.T @ covmat @ weights) ** 0.5
 
 
 def plot_ef2(n_points, er, cov):
@@ -207,17 +213,15 @@ def plot_ef2(n_points, er, cov):
     """
     if er.shape[0] != 2 or er.shape[0] != 2:
         raise ValueError("plot_ef2 can only plot 2-asset frontiers")
-    weights = [np.array([w, 1-w]) for w in np.linspace(0, 1, n_points)]
+    weights = [np.array([w, 1 - w]) for w in np.linspace(0, 1, n_points)]
     rets = [portfolio_return(w, er) for w in weights]
     vols = [portfolio_vol(w, cov) for w in weights]
     ef = pd.DataFrame({
-        "Returns": rets, 
+        "Returns": rets,
         "Volatility": vols
     })
     return ef.plot.line(x="Volatility", y="Returns", style=".-")
 
-
-from scipy.optimize import minimize
 
 def minimize_vol(target_return, er, cov):
     """
@@ -225,20 +229,20 @@ def minimize_vol(target_return, er, cov):
     given a set of expected returns and a covariance matrix
     """
     n = er.shape[0]
-    init_guess = np.repeat(1/n, n)
-    bounds = ((0.0, 1.0),) * n # an N-tuple of 2-tuples!
+    init_guess = np.repeat(1 / n, n)
+    bounds = ((0.0, 1.0),) * n  # an N-tuple of 2-tuples!
     # construct the constraints
     weights_sum_to_1 = {'type': 'eq',
                         'fun': lambda weights: np.sum(weights) - 1
-    }
+                        }
     return_is_target = {'type': 'eq',
                         'args': (er,),
-                        'fun': lambda weights, er: target_return - portfolio_return(weights,er)
-    }
+                        'fun': lambda weights, er: target_return - portfolio_return(weights, er)
+                        }
     weights = minimize(portfolio_vol, init_guess,
                        args=(cov,), method='SLSQP',
                        options={'disp': False},
-                       constraints=(weights_sum_to_1,return_is_target),
+                       constraints=(weights_sum_to_1, return_is_target),
                        bounds=bounds)
     return weights.x
 
@@ -259,7 +263,7 @@ def plot_ef(n_points, er, cov):
     rets = [portfolio_return(w, er) for w in weights]
     vols = [portfolio_vol(w, cov) for w in weights]
     ef = pd.DataFrame({
-        "Returns": rets, 
+        "Returns": rets,
         "Volatility": vols
     })
     return ef.plot.line(x="Volatility", y="Returns", style='.-', legend=False)

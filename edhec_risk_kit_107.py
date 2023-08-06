@@ -26,7 +26,7 @@ def get_hfi_returns():
     """
     hfi = pd.read_csv(github_repo + "data/edhec-hedgefundindices.csv",
                       header=0, index_col=0, parse_dates=True)
-    hfi = hfi/100
+    hfi = hfi / 100
     hfi.index = hfi.index.to_period('M')
     return hfi
 
@@ -35,7 +35,7 @@ def get_ind_returns():
     """
     Load and format the Ken French 30 Industry Portfolios Value Weighted Monthly Returns
     """
-    ind = pd.read_csv(github_repo + "data/ind30_m_vw_rets.csv", header=0, index_col=0)/100
+    ind = pd.read_csv(github_repo + "data/ind30_m_vw_rets.csv", header=0, index_col=0) / 100
     ind.index = pd.to_datetime(ind.index, format="%Y%m").to_period('M')
     ind.columns = ind.columns.str.strip()
     return ind
@@ -50,8 +50,8 @@ def skewness(r):
     demeaned_r = r - r.mean()
     # use the population standard deviation, so set dof=0
     sigma_r = r.std(ddof=0)
-    exp = (demeaned_r**3).mean()
-    return exp/sigma_r**3
+    exp = (demeaned_r ** 3).mean()
+    return exp / sigma_r ** 3
 
 
 def kurtosis(r):
@@ -63,8 +63,8 @@ def kurtosis(r):
     demeaned_r = r - r.mean()
     # use the population standard deviation, so set dof=0
     sigma_r = r.std(ddof=0)
-    exp = (demeaned_r**4).mean()
-    return exp/sigma_r**4
+    exp = (demeaned_r ** 4).mean()
+    return exp / sigma_r ** 4
 
 
 def annualize_rets(r, periods_per_year):
@@ -74,9 +74,9 @@ def annualize_rets(r, periods_per_year):
     but that is currently left as an exercise
     to the reader :-)
     """
-    compounded_growth = (1+r).prod()
+    compounded_growth = (1 + r).prod()
     n_periods = r.shape[0]
-    return compounded_growth**(periods_per_year/n_periods)-1
+    return compounded_growth ** (periods_per_year / n_periods) - 1
 
 
 def annualize_vol(r, periods_per_year):
@@ -86,7 +86,7 @@ def annualize_vol(r, periods_per_year):
     but that is currently left as an exercise
     to the reader :-)
     """
-    return r.std()*(periods_per_year**0.5)
+    return r.std() * (periods_per_year ** 0.5)
 
 
 def sharpe_ratio(r, riskfree_rate, periods_per_year):
@@ -94,11 +94,11 @@ def sharpe_ratio(r, riskfree_rate, periods_per_year):
     Computes the annualized sharpe ratio of a set of returns
     """
     # convert the annual riskfree rate to per period
-    rf_per_period = (1+riskfree_rate)**(1/periods_per_year)-1
+    rf_per_period = (1 + riskfree_rate) ** (1 / periods_per_year) - 1
     excess_ret = r - rf_per_period
     ann_ex_ret = annualize_rets(excess_ret, periods_per_year)
     ann_vol = annualize_vol(r, periods_per_year)
-    return ann_ex_ret/ann_vol
+    return ann_ex_ret / ann_vol
 
 
 def is_normal(r, level=0.01):
@@ -121,11 +121,11 @@ def drawdown(return_series: pd.Series):
        the previous peaks, and 
        the percentage drawdown
     """
-    wealth_index = 1000*(1+return_series).cumprod()
+    wealth_index = 1000 * (1 + return_series).cumprod()
     previous_peaks = wealth_index.cummax()
-    drawdowns = (wealth_index - previous_peaks)/previous_peaks
-    return pd.DataFrame({"Wealth": wealth_index, 
-                         "Previous Peak": previous_peaks, 
+    drawdowns = (wealth_index - previous_peaks) / previous_peaks
+    return pd.DataFrame({"Wealth": wealth_index,
+                         "Previous Peak": previous_peaks,
                          "Drawdown": drawdowns})
 
 
@@ -177,14 +177,14 @@ def var_gaussian(r, level=5, modified=False):
     using the Cornish-Fisher modification
     """
     # compute the Z score assuming it was Gaussian
-    z = scipy.stats.norm.ppf(level/100)
+    z = scipy.stats.norm.ppf(level / 100)
     if modified:
         # modify the Z score based on observed skewness and kurtosis
         s = skewness(r)
         k = kurtosis(r)
         z = (z +
-                (z**2 - 1)*s/6 +
-                (z**3 -3*z)*(k-3)/24 -
-                (2*z**3 - 5*z)*(s**2)/36
-            )
-    return -(r.mean() + z*r.std(ddof=0))
+             (z ** 2 - 1) * s / 6 +
+             (z ** 3 - 3 * z) * (k - 3) / 24 -
+             (2 * z ** 3 - 5 * z) * (s ** 2) / 36
+             )
+    return -(r.mean() + z * r.std(ddof=0))
