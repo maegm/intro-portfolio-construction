@@ -1,4 +1,8 @@
 import pandas as pd
+import scipy.stats
+
+github_repo = 'https://raw.githubusercontent.com/maegm/intro-portfolio-construction/master/'
+
 
 def drawdown(return_series: pd.Series):
     """Takes a time series of asset returns.
@@ -19,7 +23,7 @@ def get_ffme_returns():
     """
     Load the Fama-French Dataset for the returns of the Top and Bottom Deciles by MarketCap
     """
-    me_m = pd.read_csv("data/Portfolios_Formed_on_ME_monthly_EW.csv",
+    me_m = pd.read_csv(github_repo + "data/Portfolios_Formed_on_ME_monthly_EW.csv",
                        header=0, index_col=0, na_values=-99.99)
     rets = me_m[['Lo 10', 'Hi 10']]
     rets.columns = ['SmallCap', 'LargeCap']
@@ -32,7 +36,7 @@ def get_hfi_returns():
     """
     Load and format the EDHEC Hedge Fund Index Returns
     """
-    hfi = pd.read_csv("data/edhec-hedgefundindices.csv",
+    hfi = pd.read_csv(github_repo + "data/edhec-hedgefundindices.csv",
                       header=0, index_col=0, parse_dates=True)
     hfi = hfi/100
     hfi.index = hfi.index.to_period('M')
@@ -64,7 +68,7 @@ def kurtosis(r):
     exp = (demeaned_r**4).mean()
     return exp/sigma_r**4
 
-import scipy.stats
+
 def is_normal(r, level=0.01):
     """
     Applies the Jarque-Bera test to determine if a Series is normal or not
@@ -76,4 +80,3 @@ def is_normal(r, level=0.01):
     else:
         statistic, p_value = scipy.stats.jarque_bera(r)
         return p_value > level
-

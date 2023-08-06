@@ -1,11 +1,15 @@
 import pandas as pd
 import numpy as np
+import scipy.stats
+
+github_repo = 'https://raw.githubusercontent.com/maegm/intro-portfolio-construction/master/'
+
 
 def get_ffme_returns():
     """
     Load the Fama-French Dataset for the returns of the Top and Bottom Deciles by MarketCap
     """
-    me_m = pd.read_csv("data/Portfolios_Formed_on_ME_monthly_EW.csv",
+    me_m = pd.read_csv(github_repo + "data/Portfolios_Formed_on_ME_monthly_EW.csv",
                        header=0, index_col=0, na_values=-99.99)
     rets = me_m[['Lo 10', 'Hi 10']]
     rets.columns = ['SmallCap', 'LargeCap']
@@ -18,17 +22,18 @@ def get_hfi_returns():
     """
     Load and format the EDHEC Hedge Fund Index Returns
     """
-    hfi = pd.read_csv("data/edhec-hedgefundindices.csv",
+    hfi = pd.read_csv(github_repo + "data/edhec-hedgefundindices.csv",
                       header=0, index_col=0, parse_dates=True)
     hfi = hfi/100
     hfi.index = hfi.index.to_period('M')
     return hfi
 
+
 def get_ind_returns():
     """
     Load and format the Ken French 30 Industry Portfolios Value Weighted Monthly Returns
     """
-    ind = pd.read_csv("data/ind30_m_vw_rets.csv", header=0, index_col=0)/100
+    ind = pd.read_csv(github_repo + "data/ind30_m_vw_rets.csv", header=0, index_col=0)/100
     ind.index = pd.to_datetime(ind.index, format="%Y%m").to_period('M')
     ind.columns = ind.columns.str.strip()
     return ind
@@ -94,7 +99,6 @@ def sharpe_ratio(r, riskfree_rate, periods_per_year):
     return ann_ex_ret/ann_vol
 
 
-import scipy.stats
 def is_normal(r, level=0.01):
     """
     Applies the Jarque-Bera test to determine if a Series is normal or not
@@ -164,7 +168,6 @@ def cvar_historic(r, level=5):
         raise TypeError("Expected r to be a Series or DataFrame")
 
 
-from scipy.stats import norm
 def var_gaussian(r, level=5, modified=False):
     """
     Returns the Parametric Gauusian VaR of a Series or DataFrame
@@ -172,7 +175,7 @@ def var_gaussian(r, level=5, modified=False):
     using the Cornish-Fisher modification
     """
     # compute the Z score assuming it was Gaussian
-    z = norm.ppf(level/100)
+    z = scipy.stats.norm.ppf(level/100)
     if modified:
         # modify the Z score based on observed skewness and kurtosis
         s = skewness(r)
