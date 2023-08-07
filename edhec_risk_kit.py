@@ -1,15 +1,22 @@
 import pandas as pd
 import numpy as np
+import scipy.stats
+from scipy.stats import norm
+from scipy.optimize import minimize
 import math
 
+github_repo = 'https://raw.githubusercontent.com/maegm/intro-portfolio-construction/master/'
 
-def get_ffme_returns():
+
+def get_ffme_returns(columns=None):
     """
     Load the Fama-French Dataset for the returns of the Top and Bottom Deciles by MarketCap
     """
-    me_m = pd.read_csv("data/Portfolios_Formed_on_ME_monthly_EW.csv",
+    if columns is None:
+        columns = ['Lo 10', 'Hi 10']
+    me_m = pd.read_csv(github_repo + "data/Portfolios_Formed_on_ME_monthly_EW.csv",
                        header=0, index_col=0, na_values=-99.99)
-    rets = me_m[['Lo 10', 'Hi 10']]
+    rets = me_m[columns]
     rets.columns = ['SmallCap', 'LargeCap']
     rets = rets / 100
     rets.index = pd.to_datetime(rets.index, format="%Y%m").to_period('M')
@@ -20,7 +27,7 @@ def get_hfi_returns():
     """
     Load and format the EDHEC Hedge Fund Index Returns
     """
-    hfi = pd.read_csv("data/edhec-hedgefundindices.csv",
+    hfi = pd.read_csv(github_repo + "data/edhec-hedgefundindices.csv",
                       header=0, index_col=0, parse_dates=True)
     hfi = hfi / 100
     hfi.index = hfi.index.to_period('M')
@@ -44,7 +51,7 @@ def get_ind_file(filetype):
     elif filetype is "size":
         name = "size"
         divisor = 1
-    ind = pd.read_csv(f"data/ind30_m_{name}.csv", header=0, index_col=0) / divisor
+    ind = pd.read_csv(github_repo + f"data/ind30_m_{name}.csv", header=0, index_col=0) / divisor
     ind.index = pd.to_datetime(ind.index, format="%Y%m").to_period('M')
     ind.columns = ind.columns.str.strip()
     return ind
@@ -152,9 +159,6 @@ def sharpe_ratio(r, riskfree_rate, periods_per_year):
     return ann_ex_ret / ann_vol
 
 
-import scipy.stats
-
-
 def is_normal(r, level=0.01):
     """
     Applies the Jarque-Bera test to determine if a Series is normal or not
@@ -224,9 +228,6 @@ def cvar_historic(r, level=5):
         raise TypeError("Expected r to be a Series or DataFrame")
 
 
-from scipy.stats import norm
-
-
 def var_gaussian(r, level=5, modified=False):
     """
     Returns the Parametric Gauusian VaR of a Series or DataFrame
@@ -277,9 +278,6 @@ def plot_ef2(n_points, er, cov):
         "Volatility": vols
     })
     return ef.plot.line(x="Volatility", y="Returns", style=".-")
-
-
-from scipy.optimize import minimize
 
 
 def minimize_vol(target_return, er, cov):
@@ -450,7 +448,7 @@ def run_cppi(risky_r, safe_r=None, m=3, start=1000, floor=0.8, riskfree_rate=0.0
         "safe_r": safe_r,
         "drawdown": drawdown,
         "peak": peak_history,
-        "floor": floorval_history
+        "floor_2": floorval_history
     }
     return backtest_result
 
@@ -561,15 +559,13 @@ def cir(n_years=10, n_scenarios=1, a=0.05, b=0.03, sigma=0.05, steps_per_year=12
     rates = np.empty_like(shock)
     rates[0] = r_0
 
-    ## For Price Generation
+    # For Price Generation
     h = math.sqrt(a ** 2 + 2 * sigma ** 2)
     prices = np.empty_like(shock)
 
-    ####
-
     def price(ttm, r):
         _A = ((2 * h * math.exp((h + a) * ttm / 2)) / (2 * h + (h + a) * (math.exp(h * ttm) - 1))) ** (
-                    2 * a * b / sigma ** 2)
+                2 * a * b / sigma ** 2)
         _B = (2 * (math.exp(h * ttm) - 1)) / (2 * h + (h + a) * (math.exp(h * ttm) - 1))
         _P = _A * np.exp(-_B * r)
         return _P
@@ -585,7 +581,7 @@ def cir(n_years=10, n_scenarios=1, a=0.05, b=0.03, sigma=0.05, steps_per_year=12
         prices[step] = price(n_years - step * dt, rates[step])
 
     rates = pd.DataFrame(data=inst_to_ann(rates), index=range(num_steps))
-    ### for prices
+    # for prices
     prices = pd.DataFrame(data=prices, index=range(num_steps))
     ###
     return rates, prices
@@ -752,7 +748,7 @@ def floor_allocator(psp_r, ghp_r, floor, zc_prices, m=3):
     floor_value = np.repeat(1, n_scenarios)
     w_history = pd.DataFrame(index=psp_r.index, columns=psp_r.columns)
     for step in range(n_steps):
-        floor_value = floor * zc_prices.iloc[step]  ## PV of Floor assuming today's rates and flat YC
+        floor_value = floor * zc_prices.iloc[step]  # PV of Floor assuming today's rates and flat YC
         cushion = (account_value - floor_value) / account_value
         psp_w = (m * cushion).clip(0, 1)  # same as applying min and max
         ghp_w = 1 - psp_w
@@ -774,11 +770,11 @@ def drawdown_allocator(psp_r, ghp_r, maxdd, m=3):
     """
     n_steps, n_scenarios = psp_r.shape
     account_value = np.repeat(1, n_scenarios)
-    floor_value = np.repeat(1, n_scenarios)
+    # floor_value = np.repeat(1, n_scenarios)
     peak_value = np.repeat(1, n_scenarios)
     w_history = pd.DataFrame(index=psp_r.index, columns=psp_r.columns)
     for step in range(n_steps):
-        floor_value = (1 - maxdd) * peak_value  ### Floor is based on Prev Peak
+        floor_value = (1 - maxdd) * peak_value  # Floor is based on Prev Peak
         cushion = (account_value - floor_value) / account_value
         psp_w = (m * cushion).clip(0, 1)  # same as applying min and max
         ghp_w = 1 - psp_w
