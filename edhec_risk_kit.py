@@ -594,7 +594,6 @@ def bond_cash_flows(maturity, principal=100, coupon_rate=0.03, coupons_per_year=
     """
     n_coupons = round(maturity * coupons_per_year)
     coupon_amt = principal * coupon_rate / coupons_per_year
-    coupons = np.repeat(coupon_amt, n_coupons)
     coupon_times = np.arange(1, n_coupons + 1)
     cash_flows = pd.Series(data=coupon_amt, index=coupon_times)
     cash_flows.iloc[-1] += principal
